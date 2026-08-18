@@ -1,0 +1,1165 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ClassFlow - Manajemen Jadwal Kuliah</title>
+    
+    <!-- Google Fonts: Plus Jakarta Sans -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Boxicons untuk Ikon -->
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    
+    <!-- SheetJS (Excel Import/Export) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <!-- html2pdf (Untuk Download PDF) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['"Plus Jakarta Sans"', 'sans-serif'] },
+                    colors: { brand: { 50: '#eff6ff', 100: '#dbeafe', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8' } },
+                    boxShadow: { 'soft': '0 10px 40px -10px rgba(0,0,0,0.08)', 'float': '0 20px 40px -10px rgba(37,99,235,0.15)' }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body { -webkit-tap-highlight-color: transparent; background-color: #f8fafc; }
+        .hide-scroll::-webkit-scrollbar { width: 0px; height: 0px; display: none; }
+        .hide-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+        .glass { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+        input:focus, select:focus { outline: none; }
+        .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
+        .animate-slide-up { animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .btn-press { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+        .btn-press:active { transform: scale(0.96); }
+        @media print {
+            body { background: white !important; }
+            #sidebar, header, .no-print, #toast, #formModal, #changePwdModal { display: none !important; }
+            #mainContent { padding: 0 !important; margin: 0 !important; position: absolute; top: 0; left: 0; right: 0; width: 100%; }
+            .print-header { display: block !important; margin-bottom: 2rem; text-align: center; }
+            .print-header h2 { font-size: 18pt; font-weight: bold; margin-bottom: 5px; color: #000; text-transform: uppercase; }
+            .print-header p { font-size: 12pt; color: #333; }
+            .print-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            .print-table th, .print-table td { border: 1px solid #000 !important; padding: 10px !important; font-size: 11pt !important; color: #000 !important; }
+            .print-table th { background-color: #f3f4f6 !important; -webkit-print-color-adjust: exact; }
+            * { box-shadow: none !important; }
+        }
+        .print-header { display: none; }
+    </style>
+</head>
+<body class="m-0 p-0 text-slate-800 antialiased overflow-hidden selection:bg-brand-100 selection:text-brand-700">
+
+    <!-- LOGIN SCREEN -->
+    <div id="loginScreen" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-50 p-4 animate-fade-in">
+        <div class="absolute top-[-10%] left-[-10%] w-96 h-96 bg-brand-500/20 rounded-full mix-blend-multiply filter blur-3xl opacity-70"></div>
+        <div class="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-purple-500/20 rounded-full mix-blend-multiply filter blur-3xl opacity-70"></div>
+        
+        <div class="w-full max-w-md glass border border-white/50 rounded-[2.5rem] shadow-soft p-8 relative z-10 animate-slide-up">
+            <div class="text-center mb-8">
+                <!-- LOGO KAMPUS CUSTOM -->
+                <img src="logo.png" alt="Logo STIKES" class="w-24 h-24 object-contain mx-auto mb-5 drop-shadow-md" onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name=STIKES&background=2563eb&color=fff&rounded=true&size=100';">
+                
+                <h1 id="loginTitle" class="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">MIJR Landbouw</h1>
+                <p class="text-slate-500 mt-2 text-sm font-medium">Manajemen Informasi Jadwal dan Ruangan</p>
+            </div>
+
+            <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-5">
+                <div>
+                    <label id="userLabel" class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2 ml-1">Username Admin</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><i id="userIcon" class='bx bx-user text-slate-400 text-lg'></i></div>
+                        <input type="text" id="username" required class="block w-full pl-11 pr-4 py-3.5 bg-white/80 border border-slate-200 rounded-2xl text-slate-700 placeholder-slate-400 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all shadow-sm" placeholder="Masukkan username">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2 ml-1">Password</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><i class='bx bx-lock-alt text-slate-400 text-lg'></i></div>
+                        <input type="password" id="password" required class="block w-full pl-11 pr-4 py-3.5 bg-white/80 border border-slate-200 rounded-2xl text-slate-700 placeholder-slate-400 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all shadow-sm" placeholder="••••••••">
+                    </div>
+                </div>
+                <button type="submit" id="btnLogin" class="btn-press mt-6 w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold py-4 rounded-2xl shadow-float flex justify-center items-center gap-2 text-sm">
+                    Masuk sebagai Admin
+                </button>
+                
+                <div class="relative py-2 flex items-center">
+                    <div class="flex-grow border-t border-slate-200"></div>
+                    <span class="flex-shrink-0 mx-4 text-slate-400 text-xs font-medium uppercase tracking-wider">ATAU</span>
+                    <div class="flex-grow border-t border-slate-200"></div>
+                </div>
+
+                <!-- TOMBOL DOSEN -->
+                <button type="button" id="btnToggleDosen" onclick="toggleLoginMode('dosen')" class="btn-press w-full bg-brand-50 border border-brand-200 hover:bg-brand-100 text-brand-700 font-semibold py-3.5 rounded-2xl shadow-sm flex justify-center items-center gap-2 text-sm transition-colors">
+                    <i class='bx bx-user-voice text-lg'></i> Masuk Portal Dosen
+                </button>
+                
+                <!-- KEMBALI KE ADMIN (Sembunyi by default) -->
+                <button type="button" id="btnToggleAdmin" onclick="toggleLoginMode('admin')" class="hidden btn-press w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-3.5 rounded-2xl shadow-sm flex justify-center items-center gap-2 text-sm transition-colors">
+                    <i class='bx bx-arrow-back text-lg'></i> Kembali ke Login Admin
+                </button>
+
+                <!-- TOMBOL MAHASISWA -->
+                <button type="button" id="btnGuest" onclick="loginGuest()" class="btn-press w-full bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold py-3.5 rounded-2xl shadow-sm flex justify-center items-center gap-2 text-sm transition-colors mt-3">
+                    <i class='bx bx-group text-lg text-slate-500'></i> Masuk Portal Mahasiswa
+                </button>
+                
+                <p class="text-center text-xs font-bold text-slate-400 mt-5">Develop By : Dr. Hendra Nusa Putra, S.Kom., M.Kom</p>
+            </form>
+        </div>
+    </div>
+
+    <!-- MAIN APP -->
+    <div id="app" class="hidden w-full h-[100dvh] flex bg-slate-50 relative overflow-hidden">
+        
+        <!-- SIDEBAR -->
+        <aside id="sidebar" class="fixed md:relative inset-y-0 left-0 z-[60] w-72 transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out flex flex-col h-full bg-white border-r border-slate-100 shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
+            <div class="h-20 flex items-center gap-3 px-8 flex-none border-b border-slate-50">
+                <img src="logo.png" alt="Logo" class="w-10 h-10 object-contain drop-shadow-sm" onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name=STIKES&background=eff6ff&color=2563eb&rounded=true&size=40';">
+                <span class="font-extrabold text-xl tracking-tight text-slate-900">ClassFlow</span>
+                <button onclick="toggleSidebar()" class="md:hidden ml-auto text-slate-400 hover:text-slate-600"><i class='bx bx-x text-2xl'></i></button>
+            </div>
+
+            <nav class="flex-1 overflow-y-auto hide-scroll py-6 px-4 space-y-1.5" id="mainNav">
+                <div class="px-4 mb-2"><p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Menu Utama</p></div>
+                <a href="#" onclick="switchMenu('dashboard')" id="nav-dashboard" class="nav-item group flex items-center gap-3 px-4 py-3.5 rounded-2xl text-slate-500 hover:bg-slate-50 hover:text-brand-600 transition-all font-medium text-sm"><i class='bx bx-home-alt text-xl group-hover:scale-110 transition-transform'></i> Dashboard</a>
+                <a href="#" onclick="switchMenu('jadwal')" id="nav-jadwal" class="nav-item group flex items-center gap-3 px-4 py-3.5 rounded-2xl text-slate-500 hover:bg-slate-50 hover:text-brand-600 transition-all font-medium text-sm"><i class='bx bx-calendar-event text-xl group-hover:scale-110 transition-transform'></i> Jadwal Kuliah</a>
+
+                <div class="px-4 mt-6 mb-2 admin-dosen-only"><p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Input Dosen</p></div>
+                <a href="#" onclick="switchMenu('kesediaan')" id="nav-kesediaan" class="nav-item admin-dosen-only group flex items-center gap-3 px-4 py-3.5 rounded-2xl text-slate-500 hover:bg-slate-50 hover:text-brand-600 transition-all font-medium text-sm"><i class='bx bx-user-voice text-xl group-hover:scale-110 transition-transform'></i> Kesediaan Mengajar</a>
+
+                <div class="px-4 mt-8 mb-2 admin-only"><p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Data Master</p></div>
+                <a href="#" onclick="switchMenu('prodi')" id="nav-prodi" class="nav-item admin-only group flex items-center gap-3 px-4 py-3.5 rounded-2xl text-slate-500 hover:bg-slate-50 hover:text-brand-600 transition-all font-medium text-sm"><i class='bx bx-building-house text-xl group-hover:scale-110 transition-transform'></i> Program Studi</a>
+                <a href="#" onclick="switchMenu('ruang')" id="nav-ruang" class="nav-item admin-only group flex items-center gap-3 px-4 py-3.5 rounded-2xl text-slate-500 hover:bg-slate-50 hover:text-brand-600 transition-all font-medium text-sm"><i class='bx bx-door-open text-xl group-hover:scale-110 transition-transform'></i> Ruangan</a>
+                <a href="#" onclick="switchMenu('dosen')" id="nav-dosen" class="nav-item admin-only group flex items-center gap-3 px-4 py-3.5 rounded-2xl text-slate-500 hover:bg-slate-50 hover:text-brand-600 transition-all font-medium text-sm"><i class='bx bx-user-pin text-xl group-hover:scale-110 transition-transform'></i> Dosen</a>
+                <a href="#" onclick="switchMenu('matkul')" id="nav-matkul" class="nav-item admin-only group flex items-center gap-3 px-4 py-3.5 rounded-2xl text-slate-500 hover:bg-slate-50 hover:text-brand-600 transition-all font-medium text-sm"><i class='bx bx-book text-xl group-hover:scale-110 transition-transform'></i> Mata Kuliah</a>
+                
+                <div class="px-4 mt-6 mb-2 admin-only"><p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Laporan</p></div>
+                <a href="#" onclick="switchMenu('laporan')" id="nav-laporan" class="nav-item admin-only group flex items-center gap-3 px-4 py-3.5 rounded-2xl text-slate-500 hover:bg-slate-50 hover:text-brand-600 transition-all font-medium text-sm"><i class='bx bx-printer text-xl group-hover:scale-110 transition-transform'></i> Laporan Ruangan</a>
+            </nav>
+
+            <div class="p-4 border-t border-slate-50 bg-slate-50/50 m-4 rounded-3xl">
+                <div class="flex items-center gap-3 mb-4 px-2">
+                    <div class="w-10 h-10 rounded-full bg-brand-100 flex items-center justify-center text-brand-600 font-bold border border-brand-200"><i class='bx bx-user'></i></div>
+                    <div class="flex-1 overflow-hidden">
+                        <p class="text-sm font-bold text-slate-800 truncate" id="userNameDisplay">Admin Jadwal</p>
+                        <p class="text-xs text-slate-500 font-medium" id="userRoleDisplay">Administrator</p>
+                    </div>
+                </div>
+                <button onclick="logout()" class="btn-press w-full flex items-center justify-center gap-2 bg-white border border-slate-200 hover:border-red-200 hover:bg-red-50 hover:text-red-600 text-slate-600 py-2.5 rounded-xl transition-colors text-sm font-semibold shadow-sm"><i class='bx bx-log-out'></i> Keluar</button>
+            </div>
+        </aside>
+
+        <div id="sidebarOverlay" onclick="toggleSidebar()" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[50] hidden md:hidden transition-opacity"></div>
+
+        <!-- AREA KONTEN -->
+        <main class="flex-1 flex flex-col h-[100dvh] w-full relative">
+            <header class="md:hidden flex-none h-20 glass flex items-center justify-between px-6 border-b border-slate-200/50 z-40 sticky top-0">
+                <div class="flex items-center gap-3">
+                    <img src="logo.png" alt="Logo" class="w-8 h-8 object-contain drop-shadow-sm" onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name=STIKES&background=eff6ff&color=2563eb&rounded=true&size=32';">
+                    <span class="font-extrabold text-lg text-slate-900">ClassFlow</span>
+                </div>
+                <button onclick="toggleSidebar()" class="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-600 shadow-sm active:scale-95 transition-transform"><i class='bx bx-menu text-2xl'></i></button>
+            </header>
+
+            <div id="mainContent" class="flex-1 overflow-y-auto hide-scroll p-6 md:p-10 relative"></div>
+        </main>
+    </div>
+
+    <!-- MODAL FORM -->
+    <div id="formModal" class="fixed inset-0 z-[110] hidden flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity" onclick="closeModal()"></div>
+        <div class="bg-white rounded-[2rem] shadow-2xl w-full max-w-lg relative z-10 flex flex-col max-h-[90vh] transform scale-95 opacity-0 transition-all duration-300" id="modalCard">
+            <div class="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-white rounded-t-[2rem] shrink-0">
+                <h3 id="modalTitle" class="text-xl font-bold text-slate-900 tracking-tight">Tambah Data</h3>
+                <button type="button" onclick="closeModal()" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition-colors"><i class='bx bx-x text-xl'></i></button>
+            </div>
+            
+            <div id="conflictBanner" class="hidden bg-red-50/80 backdrop-blur border-b border-red-100 p-4 px-8 flex gap-3 items-start shrink-0">
+                <div class="w-8 h-8 rounded-full bg-red-100 text-red-600 flex items-center justify-center shrink-0 mt-0.5"><i class='bx bx-error text-lg'></i></div>
+                <div class="text-sm text-red-700 font-medium leading-relaxed" id="conflictMessage">Jadwal bentrok!</div>
+            </div>
+
+            <div class="p-8 overflow-y-auto hide-scroll flex-1">
+                <form id="dynamicForm" onsubmit="handleFormSubmit(event)" class="space-y-5"></form>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL UBAH PASSWORD DOSEN -->
+    <div id="changePwdModal" class="fixed inset-0 z-[120] hidden flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+        <div class="bg-white rounded-[2rem] shadow-2xl w-full max-w-sm p-8 relative animate-slide-up text-center">
+            <div class="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center text-3xl mx-auto mb-4"><i class='bx bx-lock-open-alt'></i></div>
+            <h3 class="text-xl font-extrabold text-slate-900 mb-2">Ubah Password Default</h3>
+            <p class="text-sm font-medium text-slate-500 mb-6 leading-relaxed">Demi keamanan, Anda diwajibkan mengubah password bawaan ("12345") sebelum mengakses Portal Dosen.</p>
+            <form onsubmit="handleUbahPassword(event)" class="space-y-4 text-left">
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-2 ml-1">Password Baru</label>
+                    <input type="password" id="newPwd" required class="block w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-slate-700 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all shadow-sm" placeholder="Minimal 5 karakter">
+                </div>
+                <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3.5 rounded-2xl shadow-float mt-2 btn-press transition-colors">Simpan & Lanjutkan</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION -->
+    <div id="toast" class="fixed top-6 left-1/2 transform -translate-x-1/2 -translate-y-full opacity-0 z-[150] transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-float font-medium text-sm">
+        <i id="toastIcon" class='bx text-xl'></i>
+        <span id="toastMsg">Pesan</span>
+    </div>
+
+    <script>
+        /* GANTI: Tautan API Google Apps Script kamu di bawah ini (Jika PREVIEW_MODE = false) */
+        const APP_URL = "https://script.google.com/macros/s/AKfycbzGmaf-edFv9h5LxWiNBnJuq_JcJ3vTBFAqJgwViTUkaU3zj6W_asGi8Zt9fn2GP2Kp/exec";
+        const PREVIEW_MODE = false; 
+
+        let currentUser = null;
+        let currentMenu = 'dashboard';
+        let currentEditId = null;
+        let currentEditSheet = '';
+        let loginMode = 'admin'; 
+
+        // Fungsi bantu mendapatkan Hari Ini LOKAL yang valid
+        const hariIndoList = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+        let hariIniLokal = hariIndoList[new Date().getDay()];
+
+        let db = {
+            prodi: [
+                {id: 1, kode: 'Farmasi', nama: 'S1 Farmasi'},
+                {id: 2, kode: 'RMIK', nama: 'D3 Rekam Medis'}
+            ],
+            ruang: [
+                {id: 1, kode: 'L101', nama: 'Lab Komputer 1', kapasitas: 40},
+                {id: 2, kode: 'R201', nama: 'Ruang AULA', kapasitas: 60}
+            ],
+            dosen: [
+                {id: 1, nidn: '112233', nama: 'Dr. Hendra Nusa Putra, M.Kom', telp: '0811', password: '123'}, 
+                {id: 2, nidn: '445566', nama: 'Alfauzain, M.Kom', telp: '0822', password: '12345'}
+            ],
+            matkul: [
+                {id: 1, kode: 'MK001', nama: 'Algoritma & Pemrograman', sks: 3, semester: 1, prodi: 'S1 Farmasi'},
+                {id: 2, kode: 'MK002', nama: 'Basis Data', sks: 3, semester: 2, prodi: 'D3 Rekam Medis'}
+            ],
+            jadwal: [
+                {id: 1, hari: 'Senin', jamMulai: '08:00', jamSelesai: '10:30', matkul_id: 1, dosen_id: 1, ruang_id: 1, prodi_id: 1},
+                {id: 2, hari: 'Selasa', jamMulai: '13:00', jamSelesai: '15:30', matkul_id: 2, dosen_id: 2, ruang_id: 2, prodi_id: 2},
+                {id: 3, hari: 'Rabu', jamMulai: '09:00', jamSelesai: '11:30', matkul_id: 1, dosen_id: 1, ruang_id: 1, prodi_id: 1},
+                {id: 4, hari: hariIniLokal, jamMulai: '10:00', jamSelesai: '12:00', matkul_id: 2, dosen_id: 2, ruang_id: 2, prodi_id: 2} // Dinamis agar selalu muncul hari ini
+            ],
+            kesediaan: [
+                {id: 1, nama: 'Dr. Hendra Nusa Putra', alamat: 'Padang', hp: '081', email: 'hendra@mail.com', prodi_id: 1, matkul: 1, hari: 'Senin', jamMulai: '08:00', jamSelesai: '11:00'},
+                {id: 2, nama: 'Alfauzain', alamat: 'Padang', hp: '082', email: 'alfa@mail.com', prodi_id: 2, matkul: 2, hari: 'Selasa', jamMulai: '10:00', jamSelesai: '14:00'}
+            ]
+        };
+
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const msg = document.getElementById('toastMsg');
+            const icon = document.getElementById('toastIcon');
+            
+            msg.innerText = message;
+            if(type === 'success') {
+                toast.className = 'fixed top-6 left-1/2 transform -translate-x-1/2 translate-y-0 opacity-100 z-[150] transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-float font-semibold text-sm bg-slate-900 text-white';
+                icon.className = 'bx bx-check-circle text-xl text-green-400';
+            } else {
+                toast.className = 'fixed top-6 left-1/2 transform -translate-x-1/2 translate-y-0 opacity-100 z-[150] transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-float font-semibold text-sm bg-red-50 border border-red-100 text-red-600';
+                icon.className = 'bx bx-error-circle text-xl';
+            }
+            setTimeout(() => { toast.style.transform = 'translate(-50%, -100%)'; toast.style.opacity = '0'; }, 3000);
+        }
+
+        function toggleSidebar() {
+            const sb = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            if (sb.classList.contains('-translate-x-full')) {
+                sb.classList.remove('-translate-x-full'); overlay.classList.remove('hidden');
+            } else {
+                sb.classList.add('-translate-x-full'); overlay.classList.add('hidden');
+            }
+        }
+
+        function toggleLoginMode(mode) {
+            loginMode = mode;
+            const title = document.getElementById('loginTitle');
+            const userLabel = document.getElementById('userLabel');
+            const userIcon = document.getElementById('userIcon');
+            const inputUser = document.getElementById('username');
+            const btnLogin = document.getElementById('btnLogin');
+            const btnDosen = document.getElementById('btnToggleDosen');
+            const btnAdmin = document.getElementById('btnToggleAdmin');
+            const btnGuest = document.getElementById('btnGuest');
+            
+            document.getElementById('loginForm').reset();
+
+            if (mode === 'dosen') {
+                title.innerText = 'Login Portal Dosen';
+                userLabel.innerText = 'NIDN Dosen';
+                userIcon.className = 'bx bx-id-card text-slate-400 text-lg';
+                inputUser.placeholder = 'Masukkan NIDN Anda';
+                btnLogin.innerHTML = 'Masuk sebagai Dosen';
+                btnLogin.className = 'btn-press mt-6 w-full bg-brand-600 hover:bg-brand-700 text-white font-semibold py-4 rounded-2xl shadow-float flex justify-center items-center gap-2 text-sm';
+                btnDosen.classList.add('hidden'); btnGuest.classList.add('hidden'); btnAdmin.classList.remove('hidden');
+            } else {
+                title.innerText = 'ClassFlow - Landbouw';
+                userLabel.innerText = 'Username Admin';
+                userIcon.className = 'bx bx-user text-slate-400 text-lg';
+                inputUser.placeholder = 'Masukkan username';
+                btnLogin.innerHTML = 'Masuk sebagai Admin';
+                btnLogin.className = 'btn-press mt-6 w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold py-4 rounded-2xl shadow-float flex justify-center items-center gap-2 text-sm';
+                btnAdmin.classList.add('hidden'); btnDosen.classList.remove('hidden'); btnGuest.classList.remove('hidden');
+            }
+        }
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            const u = document.getElementById('username').value;
+            const p = document.getElementById('password').value;
+            const btn = document.getElementById('btnLogin');
+            btn.innerHTML = `<i class='bx bx-loader-alt animate-spin'></i> Memeriksa...`; btn.disabled = true;
+
+            try {
+                if (PREVIEW_MODE) {
+                    await new Promise(r => setTimeout(r, 800));
+                    if (loginMode === 'admin') {
+                        if (String(u) === 'admin' && String(p) === '123') {
+                            currentUser = { username: 'Admin', role: 'Admin' }; initApp();
+                        } else { throw new Error("Username/Password Admin salah (Gunakan admin/123)"); }
+                    } 
+                    else if (loginMode === 'dosen') {
+                        // Di preview, apapun NIDN nya, asal password cocok, masuk (simulasi Dosen ke-2)
+                        const isDefault = String(p) === '12345';
+                        if (isDefault || String(p) === '123') {
+                            const dosenName = isDefault ? db.dosen[1].nama : db.dosen[0].nama;
+                            const dId = isDefault ? db.dosen[1].id : db.dosen[0].id;
+                            currentUser = { id: dId, username: dosenName, role: 'Dosen', isDefaultPwd: isDefault };
+                            initApp();
+                        } else { throw new Error("Password Dosen salah. (Preview: coba '12345')"); }
+                    }
+                } else {
+                    const res = await fetch(APP_URL, { method: 'POST', body: JSON.stringify({ action: 'login', username: u, password: p, mode: loginMode }), headers: { 'Content-Type': 'text/plain;charset=utf-8' } });
+                    const result = await res.json();
+                    if(result.status === 'success') { currentUser = result.data; initApp(); } 
+                    else { throw new Error(result.message); }
+                }
+            } catch (err) {
+                showToast(err.message, 'error'); 
+                btn.innerHTML = loginMode === 'admin' ? `Masuk sebagai Admin` : `Masuk sebagai Dosen`; btn.disabled = false;
+            }
+        }
+
+        async function handleUbahPassword(e) {
+            e.preventDefault();
+            const newPwd = document.getElementById('newPwd').value;
+            if (newPwd === '12345') return showToast('Harap gunakan password yang berbeda dari bawaan!', 'error');
+            if (newPwd.length < 5) return showToast('Password minimal 5 karakter!', 'error');
+
+            showToast('Menyimpan password baru...', 'success');
+            if (PREVIEW_MODE) {
+                const idx = db.dosen.findIndex(d => String(d.id) === String(currentUser.id));
+                if(idx > -1) db.dosen[idx].password = newPwd;
+                currentUser.isDefaultPwd = false;
+                document.getElementById('changePwdModal').classList.add('hidden');
+                showToast('Sukses! Silakan lanjut ke Dashboard.', 'success');
+            } else {
+                try {
+                    await fetch(APP_URL, { method: 'POST', body: JSON.stringify({ action: 'changePassword', id: currentUser.id, newPassword: newPwd }), headers: { 'Content-Type': 'text/plain;charset=utf-8' } });
+                    currentUser.isDefaultPwd = false;
+                    document.getElementById('changePwdModal').classList.add('hidden');
+                    showToast('Sukses! Silakan lanjut ke Dashboard.', 'success');
+                } catch(err) { showToast('Gagal terhubung ke server.', 'error'); }
+            }
+        }
+
+        window.loginGuest = function() { currentUser = { username: 'Mahasiswa', role: 'Guest' }; initApp(); }
+
+        function initApp() {
+            const isGuest = currentUser?.role === 'Guest';
+            const isDosen = currentUser?.role === 'Dosen';
+            const isAdmin = currentUser?.role === 'Admin';
+            
+            const nameEl = document.getElementById('userNameDisplay');
+            if (nameEl) {
+                if(isAdmin) nameEl.innerText = 'Admin Jadwal';
+                else if(isDosen) nameEl.innerText = currentUser.username;
+                else nameEl.innerText = 'Portal Mahasiswa';
+            }
+            
+            const roleEl = document.getElementById('userRoleDisplay');
+            if (roleEl) {
+                if(isAdmin) roleEl.innerText = 'Administrator';
+                else if(isDosen) roleEl.innerText = 'Dosen Pengajar';
+                else roleEl.innerText = 'Mode View-Only';
+            }
+            
+            document.querySelectorAll('.admin-only').forEach(el => {
+                if(el) el.style.display = isAdmin ? (el.tagName === 'DIV' ? 'block' : 'flex') : 'none';
+            });
+
+            document.querySelectorAll('.admin-dosen-only').forEach(el => {
+                if(el) el.style.display = (isAdmin || isDosen) ? (el.tagName === 'DIV' ? 'block' : 'flex') : 'none';
+            });
+
+            const loginScreen = document.getElementById('loginScreen');
+            if (loginScreen) {
+                loginScreen.classList.remove('animate-fade-in');
+                loginScreen.classList.add('opacity-0', 'pointer-events-none', 'transition-opacity', 'duration-500');
+                
+                setTimeout(() => {
+                    loginScreen.style.display = 'none';
+                    const appScreen = document.getElementById('app');
+                    if (appScreen) appScreen.classList.remove('hidden');
+                    if(!PREVIEW_MODE && typeof fetchAllData === 'function') fetchAllData();
+                    
+                    switchMenu('dashboard');
+
+                    if (isDosen && currentUser?.isDefaultPwd) {
+                        document.getElementById('changePwdModal').classList.remove('hidden');
+                        document.getElementById('newPwd').value = '';
+                    }
+                }, 500);
+            }
+        }
+
+        function logout() {
+            currentUser = null;
+            document.getElementById('app').classList.add('hidden');
+            const login = document.getElementById('loginScreen');
+            login.style.display = 'flex'; login.classList.remove('opacity-0', 'pointer-events-none'); login.classList.add('animate-fade-in');
+            toggleLoginMode('admin'); document.getElementById('btnLogin').disabled = false;
+        }
+
+        function switchMenu(menu) {
+            currentMenu = menu;
+            document.querySelectorAll('.nav-item').forEach(el => { el.classList.remove('bg-brand-50', 'text-brand-600', 'font-bold'); el.classList.add('text-slate-500', 'hover:bg-slate-50'); });
+            const activeNav = document.getElementById(`nav-${menu}`);
+            if(activeNav) { activeNav.classList.remove('text-slate-500', 'hover:bg-slate-50'); activeNav.classList.add('bg-brand-50', 'text-brand-700', 'font-bold'); }
+            if(window.innerWidth < 768) toggleSidebar();
+            
+            const content = document.getElementById('mainContent');
+            content.innerHTML = `<div class="flex flex-col items-center justify-center h-64 text-brand-600 opacity-50"><i class='bx bx-loader-alt animate-spin text-4xl mb-3'></i><p class="font-medium text-sm">Memuat modul...</p></div>`;
+            
+            setTimeout(() => {
+                if(menu === 'dashboard') window.renderDashboard(); 
+                else if(menu === 'jadwal') window.renderJadwal();   
+                else if(menu === 'prodi') renderTable('Data Program Studi', ['Kode', 'Nama Prodi'], db.prodi, ['kode', 'nama'], 'prodi');
+                else if(menu === 'ruang') renderTable('Data Ruangan', ['Kode', 'Nama Ruang', 'Kapasitas'], db.ruang, ['kode', 'nama', 'kapasitas'], 'ruang');
+                else if(menu === 'dosen') renderTable('Data Dosen', ['NIDN', 'Nama Dosen', 'No. Telp', 'Password'], db.dosen, ['nidn', 'nama', 'telp', 'password'], 'dosen');
+                else if(menu === 'matkul') {
+                    renderTable('Data Mata Kuliah', ['Kode', 'Nama Matkul', 'SKS', 'SMT', 'Prodi'], db.matkul, ['kode', 'nama', 'sks', 'semester', 'prodi'], 'matkul');
+                }
+                else if(menu === 'kesediaan') {
+                    const dataKesediaan = (db.kesediaan || []).map(k => {
+                        const prodi = db.prodi.find(p => String(p.id) === String(k.prodi_id))?.nama || k.prodi_id || '-';
+                        const matkulObj = db.matkul.find(m => String(m.id) === String(k.matkul))?.nama || k.matkul || '-';
+                        return { ...k, prodi_nama: prodi, matkul_nama: matkulObj, waktu: `${window.formatJamLokal(k.jamMulai)} - ${window.formatJamLokal(k.jamSelesai)}` };
+                    });
+                    renderTable('Kesediaan Mengajar', ['Nama Dosen', 'Prodi', 'Mata Kuliah', 'Hari', 'Jam'], dataKesediaan, ['nama', 'prodi_nama', 'matkul_nama', 'hari', 'waktu'], 'kesediaan');
+                }
+                else if(menu === 'laporan') window.renderLaporan(); 
+            }, 150);
+        }
+
+        function renderTable(title, headers, data, keys, sheetName) {
+            const isGuest = currentUser?.role === 'Guest';
+            let hideAction = isGuest; 
+            let actionButtons = !hideAction ? `<button onclick="openModal('${sheetName}')" class="btn-press bg-slate-900 hover:bg-slate-800 text-white px-6 py-3 rounded-2xl text-sm font-bold shadow-float flex items-center gap-2"><i class='bx bx-plus text-lg'></i> Tambah Data</button>` : '';
+
+            if((sheetName === 'dosen' || sheetName === 'matkul') && currentUser?.role === 'Admin') {
+                actionButtons = `
+                    <div class="flex flex-wrap gap-2 justify-end">
+                        <button onclick="downloadTemplate('${sheetName}')" class="btn-press bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 px-3 md:px-4 py-2.5 rounded-2xl text-sm font-bold shadow-sm flex items-center gap-2" title="Download Template Excel"><i class='bx bx-download text-lg'></i> <span class="hidden md:inline">Template</span></button>
+                        <button onclick="document.getElementById('excelInput_${sheetName}').click()" class="btn-press bg-brand-50 text-brand-700 border border-brand-100 hover:bg-brand-100 px-3 md:px-4 py-2.5 rounded-2xl text-sm font-bold shadow-sm flex items-center gap-2"><i class='bx bx-upload text-lg'></i> <span class="hidden md:inline">Import</span></button>
+                        <input type="file" id="excelInput_${sheetName}" class="hidden" accept=".xlsx, .xls" onchange="handleExcelImport(event, '${sheetName}')">
+                        <button onclick="openModal('${sheetName}')" class="btn-press bg-slate-900 hover:bg-slate-800 text-white px-3 md:px-4 py-2.5 rounded-2xl text-sm font-bold shadow-float flex items-center gap-2"><i class='bx bx-plus text-lg'></i> <span class="hidden md:inline">Tambah</span></button>
+                    </div>`;
+            }
+
+            let html = `
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-8 gap-4 animate-slide-up">
+                    <div><h2 class="text-3xl font-extrabold text-slate-900 tracking-tight">${title}</h2><p class="text-slate-500 mt-2 font-medium">Kelola basis data untuk ${title.toLowerCase()}.</p></div>
+                    ${actionButtons}
+                </div>
+                <div class="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden animate-slide-up" style="animation-delay: 0.1s">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50/50 border-b border-slate-100">
+                                    <th class="py-5 px-6 text-xs font-bold text-slate-400 uppercase tracking-widest w-16 text-center">No</th>
+                                    ${headers.map(h => `<th class="py-5 px-6 text-xs font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">${h}</th>`).join('')}
+                                    ${!hideAction ? `<th class="py-5 px-6 text-xs font-bold text-slate-400 uppercase tracking-widest text-right w-28">Aksi</th>` : ''}
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">`;
+            
+            if(data.length === 0) {
+                html += `<tr><td colspan="${headers.length + (!hideAction ? 2 : 1)}" class="py-12 text-center text-slate-400 font-medium">Tidak ada data.</td></tr>`;
+            } else {
+                data.forEach((row, idx) => {
+                    let canEdit = false;
+                    if (currentUser?.role === 'Admin') canEdit = true;
+                    if (currentUser?.role === 'Dosen' && sheetName === 'kesediaan' && row.nama === currentUser.username) canEdit = true;
+
+                    html += `
+                    <tr class="hover:bg-slate-50/50 transition-colors group">
+                        <td class="py-4 px-6 text-sm text-slate-500 text-center font-medium">${idx + 1}</td>
+                        ${keys.map(k => `<td class="py-4 px-6 text-sm text-slate-800 font-medium">${row[k]}</td>`).join('')}
+                        ${!hideAction ? `
+                        <td class="py-4 px-6 text-right">
+                            ${canEdit ? `
+                            <div class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button onclick="openModal('${sheetName}', '${row.id}')" class="btn-press w-8 h-8 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 flex items-center justify-center"><i class='bx bx-edit'></i></button>
+                                <button onclick="deleteData('${sheetName}', '${row.id}')" class="btn-press w-8 h-8 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 flex items-center justify-center"><i class='bx bx-trash'></i></button>
+                            </div>
+                            ` : `<span class="text-[11px] font-bold text-slate-400 bg-slate-100 px-2.5 py-1 rounded-md uppercase tracking-wider">Terkunci</span>`}
+                        </td>` : ''}
+                    </tr>`;
+                });
+            }
+            html += `</tbody></table></div></div>`;
+            document.getElementById('mainContent').innerHTML = html;
+        }
+
+        function openModal(type, id = null) {
+            currentEditSheet = type; currentEditId = id;
+            let item = null;
+            if (id && db[type]) item = db[type].find(x => String(x.id) === String(id));
+
+            document.getElementById('modalTitle').innerText = id ? `Edit Data` : `Tambah Data Baru`;
+            let formHTML = '';
+            
+            if(type === 'prodi') {
+                formHTML = `
+                    <div><label class="block text-xs font-bold text-slate-500 mb-2 ml-1">Kode Prodi</label><input type="text" id="form_kode" required value="${item?.kode||''}" class="w-full px-4 py-3 bg-slate-50 border-transparent rounded-xl text-slate-700 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-medium"></div>
+                    <div><label class="block text-xs font-bold text-slate-500 mb-2 ml-1">Nama Prodi</label><input type="text" id="form_nama" required value="${item?.nama||''}" class="w-full px-4 py-3 bg-slate-50 border-transparent rounded-xl text-slate-700 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-medium"></div>
+                `;
+            } else if(type === 'ruang') {
+                formHTML = `
+                    <div class="grid grid-cols-2 gap-4">
+                        <div><label class="block text-xs font-bold text-slate-500 mb-2 ml-1">Kode</label><input type="text" id="form_kode" required value="${item?.kode||''}" class="w-full px-4 py-3 bg-slate-50 border-transparent rounded-xl text-slate-700 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-medium"></div>
+                        <div><label class="block text-xs font-bold text-slate-500 mb-2 ml-1">Kapasitas</label><input type="number" id="form_kapasitas" required value="${item?.kapasitas||''}" class="w-full px-4 py-3 bg-slate-50 border-transparent rounded-xl text-slate-700 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-medium"></div>
+                    </div>
+                    <div><label class="block text-xs font-bold text-slate-500 mb-2 ml-1">Nama Ruang</label><input type="text" id="form_nama" required value="${item?.nama||''}" class="w-full px-4 py-3 bg-slate-50 border-transparent rounded-xl text-slate-700 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-medium"></div>
+                `;
+            } else if(type === 'dosen') {
+                formHTML = `
+                    <div><label class="block text-xs font-bold text-slate-500 mb-2 ml-1">NIDN (Untuk Login)</label><input type="text" id="form_nidn" required value="${item?.nidn||''}" class="w-full px-4 py-3 bg-slate-50 border-transparent rounded-xl text-slate-700 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-medium"></div>
+                    <div><label class="block text-xs font-bold text-slate-500 mb-2 ml-1">Nama Lengkap + Gelar</label><input type="text" id="form_nama" required value="${item?.nama||''}" class="w-full px-4 py-3 bg-slate-50 border-transparent rounded-xl text-slate-700 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-medium"></div>
+                    <div><label class="block text-xs font-bold text-slate-500 mb-2 ml-1">No. WA/Telp</label><input type="text" id="form_telp" required value="${item?.telp||''}" class="w-full px-4 py-3 bg-slate-50 border-transparent rounded-xl text-slate-700 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-medium"></div>
+                    <div><label class="block text-xs font-bold text-slate-500 mb-2 ml-1">Password (Default: 12345)</label><input type="text" id="form_password" required value="${item?.password||'12345'}" class="w-full px-4 py-3 bg-slate-50 border-transparent rounded-xl text-slate-700 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-medium" placeholder="Masukkan password"></div>
+                `;
+            } else if(type === 'matkul') {
+                const optProdi = db.prodi.map(p => `<option value="${p.nama}" ${item && String(item.prodi) === String(p.nama) ? 'selected':''}>${p.nama}</option>`).join('');
+                formHTML = `
+                    <div class="grid grid-cols-2 gap-4">
+                        <div><label class="block text-xs font-bold text-slate-500 mb-2 ml-1">Kode MK</label><input type="text" id="form_kode" required value="${item?.kode||''}" class="w-full px-4 py-3 bg-slate-50 border-transparent rounded-xl text-slate-700 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-medium"></div>
+                        <div><label class="block text-xs font-bold text-slate-500 mb-2 ml-1">SKS</label><input type="number" id="form_sks" required value="${item?.sks||''}" class="w-full px-4 py-3 bg-slate-50 border-transparent rounded-xl text-slate-700 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-medium"></div>
+                    </div>
+                    <div><label class="block text-xs font-bold text-slate-500 mb-2 ml-1">Nama Mata Kuliah</label><input type="text" id="form_nama" required value="${item?.nama||''}" class="w-full px-4 py-3 bg-slate-50 border-transparent rounded-xl text-slate-700 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-medium"></div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div><label class="block text-xs font-bold text-slate-500 mb-2 ml-1">Semester</label><input type="number" id="form_semester" required value="${item?.semester||''}" class="w-full px-4 py-3 bg-slate-50 border-transparent rounded-xl text-slate-700 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-medium"></div>
+                        <div><label class="block text-xs font-bold text-slate-500 mb-2 ml-1">Program Studi</label><select id="form_prodi" required class="w-full px-4 py-3 bg-slate-50 border-transparent rounded-xl text-slate-700 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-medium"><option value="">Pilih Prodi</option>${optProdi}</select></div>
+                    </div>
+                `;
+            } else if(type === 'kesediaan') {
+                // Tampilkan SEMUA prodi yang ada di master (gunakan field kode dan nama agar jelas)
+                const optProdi = db.prodi.map(p => `<option value="${p.id}" ${item && String(item.prodi_id) === String(p.id) ? 'selected':''}>${p.kode} - ${p.nama}</option>`).join('');
+                
+                // Filter dropdown Matkul jika sedang mode Edit
+                let optMatkul = '<option value="">Pilih Mata Kuliah</option>';
+                if(item && item.prodi_id) {
+                    const pObj = db.prodi.find(p => String(p.id) === String(item.prodi_id));
+                    if(pObj) {
+                        const filteredMatkul = db.matkul.filter(m => m.prodi === pObj.nama || m.prodi === pObj.kode || String(m.prodi_id) === String(pObj.id));
+                        optMatkul += filteredMatkul.map(m => `<option value="${m.id}" ${String(item.matkul) === String(m.id) ? 'selected':''}>${m.kode} - ${m.nama}</option>`).join('');
+                    }
+                }
+                
+                const optHari = hariIndoList.slice(1).map(h => `<option value="${h}" ${item && item.hari === h ? 'selected':''}>${h}</option>`).join('');
+                const valNama = item?.nama || (currentUser?.role === 'Dosen' ? currentUser.username : '');
+
+                formHTML = `
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="md:col-span-2">
+                            <label class="block text-xs font-bold text-slate-500 mb-2 ml-1">Nama Lengkap & Gelar</label>
+                            <input type="text" id="form_nama" required value="${valNama}" class="w-full px-4 py-3 bg-slate-50 border-transparent rounded-xl text-slate-700 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-medium" placeholder="Cth: Dr. John Doe, M.Kom">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-xs font-bold text-slate-500 mb-2 ml-1">Alamat Lengkap</label>
+                            <input type="text" id="form_alamat" required value="${item?.alamat||''}" class="w-full px-4 py-3 bg-slate-50 border-transparent rounded-xl text-slate-700 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-medium">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 mb-2 ml-1">No. HP / WA</label>
+                            <input type="text" id="form_hp" required value="${item?.hp||''}" class="w-full px-4 py-3 bg-slate-50 border-transparent rounded-xl text-slate-700 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-medium">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 mb-2 ml-1">Email Aktif</label>
+                            <input type="email" id="form_email" required value="${item?.email||''}" class="w-full px-4 py-3 bg-slate-50 border-transparent rounded-xl text-slate-700 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-medium">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-xs font-bold text-slate-500 mb-2 ml-1">Program Studi Tujuan</label>
+                            <select id="form_prodi_id" onchange="window.filterMatkulByProdi()" required class="w-full px-4 py-3 bg-slate-50 border-transparent rounded-xl text-slate-700 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-medium"><option value="">Pilih Program Studi</option>${optProdi}</select>
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-xs font-bold text-slate-500 mb-2 ml-1">Mata Kuliah Yang Diampu</label>
+                            <select id="form_matkul" required class="w-full px-4 py-3 bg-slate-50 border-transparent rounded-xl text-slate-700 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-medium">${optMatkul}</select>
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-xs font-bold text-slate-500 mb-2 ml-1">Hari Tersedia</label>
+                            <select id="form_hari" required class="w-full px-4 py-3 bg-slate-50 border-transparent rounded-xl text-slate-700 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-medium"><option value="">Pilih Hari Kosong</option>${optHari}</select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 mb-2 ml-1">Jam Mulai</label>
+                            <input type="time" id="form_jamMulai" required value="${window.formatJamLokal(item?.jamMulai) || ''}" class="w-full px-4 py-3 bg-slate-50 border-transparent rounded-xl text-slate-700 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-medium">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 mb-2 ml-1">Jam Selesai</label>
+                            <input type="time" id="form_jamSelesai" required value="${window.formatJamLokal(item?.jamSelesai) || ''}" class="w-full px-4 py-3 bg-slate-50 border-transparent rounded-xl text-slate-700 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-medium">
+                        </div>
+                    </div>
+                `;
+            } else if(type === 'jadwal') {
+                const optProdi = db.prodi.map(p => `<option value="${p.id}" ${item && String(item.prodi_id) === String(p.id) ? 'selected':''}>${p.nama}</option>`).join('');
+                const optMatkul = db.matkul.map(m => `<option value="${m.id}" ${item && String(item.matkul_id) === String(m.id) ? 'selected':''}>${m.nama}</option>`).join('');
+                const optDosen = db.dosen.map(d => `<option value="${d.id}" ${item && String(item.dosen_id) === String(d.id) ? 'selected':''}>${d.nama}</option>`).join('');
+                const optRuang = db.ruang.map(r => `<option value="${r.id}" ${item && String(item.ruang_id) === String(r.id) ? 'selected':''}>${r.nama}</option>`).join('');
+                const optHari = hariIndoList.map(h => `<option value="${h}" ${item && item.hari === h ? 'selected':''}>${h}</option>`).join('');
+
+                // FILTER: Hanya tampilkan kesediaan yang BELUM dipakai di Jadwal (Lebih kebal error)
+                const availableKesediaan = (db.kesediaan || []).filter(k => {
+                    const kName = (k.nama || '').toLowerCase().trim();
+                    const matchedDosen = db.dosen.find(d => {
+                        const dName = (d.nama || '').toLowerCase().trim();
+                        return dName === kName || dName.includes(kName) || kName.includes(dName);
+                    });
+                    const dId = matchedDosen ? String(matchedDosen.id) : null;
+                    
+                    const isUsed = db.jadwal.some(j => 
+                        String(j.dosen_id) === dId &&
+                        String(j.matkul_id) === String(k.matkul) &&
+                        j.hari === k.hari
+                        // Syarat 'jam' ditiadakan agar lebih pintar mendeteksi kecocokan
+                    );
+                    
+                    // Pengecualian: Jika sedang Edit Jadwal yg bersangkutan, tetap tampilkan agar tidak hilang
+                    if (item && String(item.dosen_id) === dId && String(item.matkul_id) === String(k.matkul) && item.hari === k.hari) return true;
+                    
+                    return !isUsed;
+                });
+
+                const optKesediaan = availableKesediaan.map(k => {
+                    const mNama = db.matkul.find(m => String(m.id) === String(k.matkul))?.nama || '-';
+                    return `<option value="${k.id}">${k.nama} | ${mNama} | ${k.hari} (${window.formatJamLokal(k.jamMulai)})</option>`;
+                }).join('');
+
+                formHTML = `
+                    <div class="mb-5 p-5 bg-brand-50 border border-brand-100 rounded-2xl animate-fade-in">
+                        <label class="block text-xs font-bold text-brand-700 mb-2 ml-1"><i class='bx bx-import text-sm'></i> Tarik Data Kesediaan Dosen (Opsional)</label>
+                        <select onchange="window.applyKesediaan(this.value)" class="w-full px-4 py-3 bg-white border-transparent rounded-xl text-slate-700 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-medium text-sm shadow-sm cursor-pointer">
+                            <option value="">-- Pilih dari data dosen yang masuk --</option>
+                            ${optKesediaan}
+                        </select>
+                        <p class="text-[10px] font-bold text-brand-600 mt-2 ml-1 opacity-80">*Opsi yang tampil hanya data dosen yang belum dijadwalkan.</p>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="md:col-span-2"><label class="block text-xs font-bold text-slate-500 mb-2 ml-1">Program Studi</label><select id="form_prodi_id" required class="w-full px-4 py-3 bg-slate-50 border-transparent rounded-xl text-slate-700 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-medium"><option value="">Pilih Program Studi</option>${optProdi}</select></div>
+                        <div><label class="block text-xs font-bold text-slate-500 mb-2 ml-1">Mata Kuliah</label><select id="form_matkul_id" required class="w-full px-4 py-3 bg-slate-50 border-transparent rounded-xl text-slate-700 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-medium"><option value="">Pilih Matkul</option>${optMatkul}</select></div>
+                        <div><label class="block text-xs font-bold text-slate-500 mb-2 ml-1">Dosen Pengajar</label><select id="form_dosen_id" required class="w-full px-4 py-3 bg-slate-50 border-transparent rounded-xl text-slate-700 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-medium"><option value="">Pilih Dosen</option>${optDosen}</select></div>
+                        <div><label class="block text-xs font-bold text-slate-500 mb-2 ml-1">Hari</label><select id="form_hari" required class="w-full px-4 py-3 bg-slate-50 border-transparent rounded-xl text-slate-700 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-medium"><option value="">Pilih Hari</option>${optHari}</select></div>
+                        <div><label class="block text-xs font-bold text-slate-500 mb-2 ml-1">Ruangan</label><select id="form_ruang_id" required class="w-full px-4 py-3 bg-slate-50 border-transparent rounded-xl text-slate-700 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-medium"><option value="">Pilih Ruang</option>${optRuang}</select></div>
+                        <div><label class="block text-xs font-bold text-slate-500 mb-2 ml-1">Jam Mulai</label><input type="time" id="form_jamMulai" required value="${window.formatJamLokal(item?.jamMulai) || ''}" class="w-full px-4 py-3 bg-slate-50 border-transparent rounded-xl text-slate-700 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-medium"></div>
+                        <div><label class="block text-xs font-bold text-slate-500 mb-2 ml-1">Jam Selesai</label><input type="time" id="form_jamSelesai" required value="${window.formatJamLokal(item?.jamSelesai) || ''}" class="w-full px-4 py-3 bg-slate-50 border-transparent rounded-xl text-slate-700 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all font-medium"></div>
+                    </div>
+                `;
+            }
+
+            formHTML += `
+                <div class="pt-4 border-t border-slate-100 mt-6 flex justify-end gap-3">
+                    <button type="button" onclick="closeModal()" class="btn-press px-6 py-3 rounded-2xl text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 font-bold text-sm">Batal</button>
+                    <button type="submit" id="btnSubmitForm" class="btn-press px-6 py-3 rounded-2xl text-white bg-slate-900 hover:bg-slate-800 shadow-float font-bold text-sm flex items-center gap-2"><i class='bx bx-save'></i> Simpan Data</button>
+                </div>`;
+            
+            document.getElementById('dynamicForm').innerHTML = formHTML;
+            const modal = document.getElementById('formModal');
+            const card = document.getElementById('modalCard');
+            modal.classList.remove('hidden');
+            document.getElementById('conflictBanner').classList.add('hidden');
+            document.getElementById('btnSubmitForm').disabled = false;
+            document.getElementById('btnSubmitForm').classList.remove('opacity-50', 'cursor-not-allowed');
+            
+            if(type === 'jadwal') setTimeout(attachConflictListeners, 100);
+            requestAnimationFrame(() => { card.classList.remove('scale-95', 'opacity-0'); card.classList.add('scale-100', 'opacity-100'); });
+        }
+
+        function closeModal() {
+            const card = document.getElementById('modalCard');
+            card.classList.remove('scale-100', 'opacity-100'); card.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => { document.getElementById('formModal').classList.add('hidden'); }, 300);
+        }
+
+        function attachConflictListeners() {
+            ['form_hari', 'form_jamMulai', 'form_jamSelesai', 'form_ruang_id', 'form_dosen_id'].forEach(id => {
+                const el = document.getElementById(id); if(el) el.addEventListener('change', runConflictCheck);
+            });
+        }
+
+        function runConflictCheck() {
+            const hari = document.getElementById('form_hari')?.value;
+            const mulai = document.getElementById('form_jamMulai')?.value;
+            const selesai = document.getElementById('form_jamSelesai')?.value;
+            const ruangId = document.getElementById('form_ruang_id')?.value;
+            const dosenId = document.getElementById('form_dosen_id')?.value;
+            
+            const banner = document.getElementById('conflictBanner');
+            const msg = document.getElementById('conflictMessage');
+            const btnSubmit = document.getElementById('btnSubmitForm');
+
+            if(!hari || !mulai || !selesai || (!ruangId && !dosenId)) return;
+
+            let conflict = null;
+            for(let j of db.jadwal) {
+                if(currentEditId && String(j.id) === String(currentEditId)) continue; 
+                const jMulai = window.formatJamLokal(j.jamMulai);
+                const jSelesai = window.formatJamLokal(j.jamSelesai);
+                
+                if(j.hari === hari && mulai < jSelesai && selesai > jMulai) {
+                    if(ruangId && String(j.ruang_id) === String(ruangId)) {
+                        const rObj = db.ruang.find(x => String(x.id) === String(ruangId));
+                        const mObj = db.matkul.find(x => String(x.id) === String(j.matkul_id));
+                        conflict = `Bentrok! Ruang <b>${rObj?rObj.nama:ruangId}</b> sedang terpakai untuk kelas <b>${mObj?mObj.nama:j.matkul_id}</b>.`; break;
+                    }
+                    if(dosenId && String(j.dosen_id) === String(dosenId)) {
+                        const dObj = db.dosen.find(x => String(x.id) === String(dosenId));
+                        const mObj = db.matkul.find(x => String(x.id) === String(j.matkul_id));
+                        conflict = `Bentrok! <b>${dObj?dObj.nama:dosenId}</b> sedang mengajar <b>${mObj?mObj.nama:j.matkul_id}</b>.`; break;
+                    }
+                }
+            }
+
+            if(banner && btnSubmit && msg) {
+                if(conflict) {
+                    banner.classList.remove('hidden'); msg.innerHTML = conflict;
+                    btnSubmit.disabled = true; btnSubmit.classList.add('opacity-50', 'cursor-not-allowed');
+                } else {
+                    banner.classList.add('hidden');
+                    btnSubmit.disabled = false; btnSubmit.classList.remove('opacity-50', 'cursor-not-allowed');
+                }
+            }
+        }
+
+        async function fetchAllData() {
+            try {
+                const res = await fetch(APP_URL, { method: 'POST', body: JSON.stringify({ action: 'getAllData' }), headers: { 'Content-Type': 'text/plain;charset=utf-8' } });
+                const result = await res.json();
+                if(result.status === 'success') { 
+                    db = result.data; 
+                    if(!db.kesediaan) db.kesediaan = [];
+                    switchMenu(currentMenu); 
+                }
+            } catch (err) { showToast('Gagal memuat data dari server.', 'error'); }
+        }
+
+        async function handleFormSubmit(e) {
+            e.preventDefault();
+            const payload = {};
+            e.target.querySelectorAll('input, select').forEach(el => { if(el.id.startsWith('form_')) payload[el.id.replace('form_', '')] = el.value; });
+            
+            // VALIDASI FORM
+            const numFields = ['sks', 'semester', 'kapasitas'];
+            for(let key of numFields) {
+                if(payload[key] && parseInt(payload[key]) <= 0) return showToast(`${key} tidak boleh nol atau minus!`, 'error');
+            }
+            if(payload.jamMulai && payload.jamSelesai && payload.jamMulai >= payload.jamSelesai) {
+                return showToast('Jam Selesai harus lebih besar dari Jam Mulai!', 'error');
+            }
+
+            if(!currentEditId) payload.id = new Date().getTime();
+            if(!db[currentEditSheet]) db[currentEditSheet] = [];
+
+            if(currentEditId) {
+                const idx = db[currentEditSheet].findIndex(x => String(x.id) === String(currentEditId));
+                if(idx > -1) db[currentEditSheet][idx] = { ...db[currentEditSheet][idx], ...payload };
+            } else { db[currentEditSheet].push(payload); }
+
+            closeModal(); switchMenu(currentMenu); showToast('Menyimpan data...', 'success');
+
+            if(!PREVIEW_MODE) {
+                try {
+                    await fetch(APP_URL, { method: 'POST', body: JSON.stringify({ action: currentEditId ? 'update' : 'create', sheetName: currentEditSheet, id: currentEditId, payload: payload }), headers: { 'Content-Type': 'text/plain;charset=utf-8' } });
+                    showToast('Data berhasil disimpan ke database!', 'success');
+                } catch (err) { showToast('Gagal sinkronisasi ke server.', 'error'); }
+            } else { showToast('Data disimpan! (Preview Mode)', 'success'); }
+        }
+
+        async function deleteData(sheetName, id) {
+            db[sheetName] = db[sheetName].filter(x => String(x.id) !== String(id));
+            switchMenu(currentMenu);
+            if(!PREVIEW_MODE) {
+                try { await fetch(APP_URL, { method: 'POST', body: JSON.stringify({ action: 'delete', sheetName: sheetName, id: id }), headers: { 'Content-Type': 'text/plain;charset=utf-8' } });
+                    showToast('Data dihapus dari database.', 'success');
+                } catch (err) { showToast('Gagal menghapus dari server.', 'error'); }
+            } else { showToast('Data dihapus! (Preview Mode)', 'success'); }
+        }
+
+        function broadcastWA(jadwalId) {
+            const j = db.jadwal.find(x => String(x.id) === String(jadwalId)); if(!j) return;
+            const matkul = db.matkul.find(x => String(x.id) === String(j.matkul_id))?.nama || j.matkul_id || '-';
+            const dosen = db.dosen.find(x => String(x.id) === String(j.dosen_id))?.nama || j.dosen_id || '-';
+            const ruang = db.ruang.find(x => String(x.id) === String(j.ruang_id))?.nama || j.ruang_id || '-';
+            let text = `*PENGUMUMAN JADWAL KELAS*%0A%0A📚 Matkul: ${matkul}%0A👤 Dosen: ${dosen}%0A🗓 Hari: ${j.hari}%0A⏰ Jam: ${window.formatJamLokal(j.jamMulai)} - ${window.formatJamLokal(j.jamSelesai)} WIB%0A📍 Ruang: ${ruang}%0A%0AMohon kehadirannya tepat waktu. Terima kasih!`;
+            window.open(`https://wa.me/?text=${text}`, '_blank');
+        }
+
+        // ================= EXCEL IMPORT =================
+        function downloadTemplate(type) {
+            const headers = type === 'dosen' ? ['nidn', 'nama', 'telp', 'password'] : ['kode', 'nama', 'sks', 'semester', 'prodi'];
+            const ws = XLSX.utils.aoa_to_sheet([headers]); ws['!cols'] = headers.map(h => ({ wch: 20 }));
+            const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Template");
+            XLSX.writeFile(wb, `Template_${type}.xlsx`);
+        }
+
+        function handleExcelImport(e, type) {
+            const file = e.target.files[0]; if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+                const json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+
+                if (json.length === 0) return showToast("Gagal: File excel kosong!", "error");
+                
+                const expectedHeaders = type === 'dosen' ? ['nidn', 'nama', 'telp', 'password'] : ['kode', 'nama', 'sks', 'semester', 'prodi'];
+                if (!expectedHeaders.every(h => Object.keys(json[0]).includes(h))) return showToast(`Gagal: Format kolom harus: ${expectedHeaders.join(', ')}`, "error");
+
+                document.getElementById('mainContent').innerHTML = `<div class="flex flex-col items-center justify-center h-[50vh] text-brand-600"><i class='bx bx-loader-alt animate-spin text-4xl mb-3'></i><p class="font-medium text-sm">Sedang mengimpor ${json.length} data...</p></div>`;
+
+                const newRows = json.map((row, index) => {
+                    row.id = new Date().getTime() + index;
+                    if(row.telp) row.telp = String(row.telp); if(row.kode) row.kode = String(row.kode); if(row.nidn) row.nidn = String(row.nidn);
+                    if(type === 'dosen') row.password = String(row.password || '12345');
+                    return row;
+                });
+
+                db[type] = [...db[type], ...newRows];
+                if(!PREVIEW_MODE) {
+                    try { await fetch(APP_URL, { method: 'POST', body: JSON.stringify({ action: 'createBulk', sheetName: type, payload: newRows }), headers: { 'Content-Type': 'text/plain;charset=utf-8' } });
+                        showToast(`${newRows.length} data diimpor!`, "success");
+                    } catch (err) { showToast("Gagal sinkronisasi data massal.", "error"); }
+                } else { showToast(`${newRows.length} data diimpor! (Mode Preview)`, "success"); }
+                setTimeout(() => switchMenu(type), 500);
+            };
+            reader.readAsArrayBuffer(file); e.target.value = ''; 
+        }
+
+        // ================= FIX & RENDER UI =================
+        window.filterMatkulByProdi = function() {
+            const prodiId = document.getElementById('form_prodi_id')?.value;
+            const matkulSelect = document.getElementById('form_matkul');
+            if(!matkulSelect) return;
+            
+            matkulSelect.innerHTML = '<option value="">Pilih Mata Kuliah</option>';
+            if(!prodiId) return;
+
+            // Cari objek prodi dari ID
+            const pObj = db.prodi.find(p => String(p.id) === String(prodiId));
+            if(pObj) {
+                // Saring matkul. Cek relasi dari p.nama, p.kode, atau prodi_id (safety net)
+                const filteredMatkul = db.matkul.filter(m => m.prodi === pObj.nama || m.prodi === pObj.kode || String(m.prodi_id) === String(pObj.id));
+                filteredMatkul.forEach(m => {
+                    matkulSelect.innerHTML += `<option value="${m.id}">${m.kode} - ${m.nama}</option>`;
+                });
+            }
+        };
+
+        window.formatJamLokal = function(val) {
+            if (!val) return "-";
+            if (typeof val === 'string' && val.includes('T')) {
+                const dateObj = new Date(val);
+                if (!isNaN(dateObj.getTime())) return `${String(dateObj.getHours()).padStart(2, '0')}:${String(dateObj.getMinutes()).padStart(2, '0')}`;
+            }
+            return val;
+        };
+
+        window.renderDashboard = function() {
+            const isGuest = currentUser?.role === 'Guest';
+            // Deteksi real-time hari apa di device user
+            const currentHari = hariIndoList[new Date().getDay()]; 
+            const jadwalHariIni = db.jadwal.filter(j => j.hari === currentHari); 
+
+            let html = `
+                <div class="mb-8 animate-slide-up no-print">
+                    <h2 class="text-3xl font-extrabold text-slate-900 tracking-tight">Halo, ${currentUser?.username || 'Guest'}! 👋</h2>
+                    <p class="text-slate-500 mt-2 font-medium">Selamat datang di pusat manajemen jadwal perkuliahan.</p>
+                </div>
+            `;
+
+            if(!isGuest) {
+                html += `
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-10 animate-slide-up no-print" style="animation-delay: 0.1s">
+                    <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 flex flex-col justify-between h-36">
+                        <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl"><i class='bx bx-calendar-check'></i></div>
+                        <div><p class="text-3xl font-extrabold text-slate-900">${db.jadwal.length}</p><p class="text-xs font-bold text-slate-400 uppercase tracking-wider mt-1">Total Jadwal</p></div>
+                    </div>
+                    <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 flex flex-col justify-between h-36">
+                        <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl"><i class='bx bx-book'></i></div>
+                        <div><p class="text-3xl font-extrabold text-slate-900">${db.matkul.length}</p><p class="text-xs font-bold text-slate-400 uppercase tracking-wider mt-1">Mata Kuliah</p></div>
+                    </div>
+                    <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 flex flex-col justify-between h-36">
+                        <div class="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center text-xl"><i class='bx bx-user-pin'></i></div>
+                        <div><p class="text-3xl font-extrabold text-slate-900">${db.dosen.length}</p><p class="text-xs font-bold text-slate-400 uppercase tracking-wider mt-1">Total Dosen</p></div>
+                    </div>
+                    <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 flex flex-col justify-between h-36">
+                        <div class="w-10 h-10 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center text-xl"><i class='bx bx-door-open'></i></div>
+                        <div><p class="text-3xl font-extrabold text-slate-900">${db.ruang.length}</p><p class="text-xs font-bold text-slate-400 uppercase tracking-wider mt-1">Ruangan</p></div>
+                    </div>
+                </div>`;
+            }
+
+            html += `
+                <div class="bg-white rounded-[2rem] shadow-sm border border-slate-100 p-6 md:p-8 animate-slide-up" style="animation-delay: 0.2s">
+                    <div class="flex justify-between items-center mb-6">
+                        <div>
+                            <h3 class="text-lg font-extrabold text-slate-900">Jadwal Hari Ini (${currentHari})</h3>
+                            <p class="text-sm text-slate-500 font-medium mt-1">Kelas yang berlangsung hari ini</p>
+                        </div>
+                        <button onclick="switchMenu('jadwal')" class="text-brand-600 hover:text-brand-700 bg-brand-50 hover:bg-brand-100 px-4 py-2 rounded-xl text-sm font-bold transition-colors no-print">Lihat Semua</button>
+                    </div>
+                    <div class="space-y-4">
+            `;
+
+            if(jadwalHariIni.length === 0) {
+                html += `<div class="text-center py-10"><div class="text-5xl mb-3">☕</div><p class="text-slate-400 font-medium text-sm">Tidak ada jadwal untuk hari ${currentHari}. Santai dulu!</p></div>`;
+            } else {
+                jadwalHariIni.sort((a,b) => window.formatJamLokal(a.jamMulai).localeCompare(window.formatJamLokal(b.jamMulai))).forEach(j => {
+                    const matkul = db.matkul.find(x => String(x.id) === String(j.matkul_id))?.nama || j.matkul_id || '-';
+                    const dosen = db.dosen.find(x => String(x.id) === String(j.dosen_id))?.nama || j.dosen_id || '-';
+                    const ruang = db.ruang.find(x => String(x.id) === String(j.ruang_id))?.nama || j.ruang_id || '-';
+                    
+                    html += `
+                    <div class="flex items-center p-4 rounded-2xl bg-slate-50 border border-slate-100 hover:border-slate-200 transition-colors group">
+                        <div class="w-16 text-center border-r border-slate-200 pr-4 mr-4 shrink-0">
+                            <p class="text-sm font-extrabold text-slate-800">${window.formatJamLokal(j.jamMulai)}</p>
+                            <p class="text-[10px] font-bold text-slate-400 mt-0.5">${window.formatJamLokal(j.jamSelesai)}</p>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-base font-bold text-slate-900 truncate group-hover:text-brand-600 transition-colors">${matkul}</p>
+                            <p class="text-xs text-slate-500 font-medium mt-1 truncate"><i class='bx bx-user mr-1'></i>${dosen}</p>
+                        </div>
+                        <div class="hidden sm:flex items-center shrink-0 bg-white px-3 py-1.5 rounded-xl border border-slate-100 shadow-sm ml-4">
+                            <i class='bx bx-map text-brand-500 mr-1.5'></i>
+                            <span class="text-xs font-bold text-slate-700">${ruang}</span>
+                        </div>
+                    </div>`;
+                });
+            }
+            html += `</div></div>`;
+            document.getElementById('mainContent').innerHTML = html;
+        };
+
+        window.renderJadwal = function(selectedProdi = 'all') {
+            const isGuest = currentUser?.role === 'Guest';
+            const optProdiFilter = db.prodi.map(p => `<option value="${p.id}" ${String(selectedProdi) === String(p.id) ? 'selected' : ''}>${p.kode} - ${p.nama}</option>`).join('');
+            
+            let html = `
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-8 gap-4 animate-slide-up no-print">
+                    <div class="w-full sm:w-auto flex-1">
+                        <h2 class="text-3xl font-extrabold text-slate-900 tracking-tight">Manajer Jadwal</h2>
+                        <p class="text-slate-500 mt-2 font-medium">${isGuest ? 'Lihat jadwal perkuliahan terkini.' : 'Kelola dan atur jadwal perkuliahan tanpa bentrok.'}</p>
+                    </div>
+                    <div class="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                        <div class="relative w-full sm:w-64">
+                            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><i class='bx bx-filter-alt text-slate-400'></i></div>
+                            <select onchange="window.renderJadwal(this.value)" class="block w-full pl-11 pr-10 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 appearance-none shadow-sm cursor-pointer transition-all">
+                                <option value="all">Semua Program Studi</option>${optProdiFilter}
+                            </select>
+                            <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none"><i class='bx bx-chevron-down text-slate-400 text-lg'></i></div>
+                        </div>
+                        ${currentUser?.role === 'Admin' ? `<button onclick="openModal('jadwal')" class="btn-press bg-slate-900 hover:bg-slate-800 text-white px-6 py-3 rounded-2xl text-sm font-bold shadow-float flex items-center justify-center gap-2 whitespace-nowrap"><i class='bx bx-plus text-lg'></i> Buat Jadwal</button>` : ''}
+                    </div>
+                </div>
+            `;
+
+            let dataJadwalFiltered = selectedProdi !== 'all' ? db.jadwal.filter(j => String(j.prodi_id) === String(selectedProdi)) : db.jadwal;
+
+            if (dataJadwalFiltered.length === 0) {
+                html += `<div class="flex flex-col items-center justify-center py-20 bg-white rounded-[2rem] border border-slate-100 shadow-sm"><div class="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4"><i class='bx bx-calendar-x text-3xl text-slate-400'></i></div><p class="text-slate-500 font-medium">Belum ada jadwal terdaftar untuk kriteria ini.</p></div>`;
+            } else {
+                html += `<div class="space-y-10">`;
+                hariIndoList.forEach(hari => {
+                    const jadwalHari = dataJadwalFiltered.filter(j => j.hari === hari).sort((a,b) => window.formatJamLokal(a.jamMulai).localeCompare(window.formatJamLokal(b.jamMulai)));
+                    if(jadwalHari.length > 0) {
+                        html += `
+                        <div class="animate-slide-up">
+                            <div class="flex items-center gap-3 mb-5 pl-2">
+                                <div class="w-3 h-8 bg-brand-500 rounded-full"></div><h3 class="text-xl font-extrabold text-slate-800">${hari}</h3><div class="flex-1 border-t-2 border-dashed border-slate-200 ml-4"></div>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                        `;
+                        jadwalHari.forEach(j => {
+                            const matkul = db.matkul.find(x => String(x.id) === String(j.matkul_id))?.nama || j.matkul_id || '-';
+                            const dosen = db.dosen.find(x => String(x.id) === String(j.dosen_id))?.nama || j.dosen_id || '-';
+                            const ruang = db.ruang.find(x => String(x.id) === String(j.ruang_id))?.nama || j.ruang_id || '-';
+                            const prodi = db.prodi.find(x => String(x.id) === String(j.prodi_id))?.kode || j.prodi_id || 'Umum';
+                            
+                            html += `
+                            <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 hover:shadow-soft hover:-translate-y-1 transition-all group relative overflow-hidden">
+                                <div class="absolute top-5 right-5 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2 no-print">
+                                    <button onclick="broadcastWA('${j.id}')" title="Broadcast WA" class="btn-press w-9 h-9 rounded-xl bg-[#25D366]/10 text-[#25D366] flex items-center justify-center hover:bg-[#25D366]/20"><i class='bx bxl-whatsapp text-xl'></i></button>
+                                    ${currentUser?.role === 'Admin' ? `
+                                    <button onclick="openModal('jadwal', '${j.id}')" class="btn-press w-9 h-9 rounded-xl bg-slate-50 text-slate-600 flex items-center justify-center hover:bg-slate-200"><i class='bx bx-edit text-lg'></i></button>
+                                    <button onclick="deleteData('jadwal', '${j.id}')" class="btn-press w-9 h-9 rounded-xl bg-red-50 text-red-600 flex items-center justify-center hover:bg-red-100"><i class='bx bx-trash text-lg'></i></button>` : ''}
+                                </div>
+                                <div class="flex flex-wrap items-center gap-2 mb-4 pr-20">
+                                    <span class="bg-brand-50 text-brand-700 px-3 py-1 rounded-full text-xs font-bold border border-brand-100 flex items-center gap-1"><i class='bx bx-time-five'></i> ${window.formatJamLokal(j.jamMulai)} - ${window.formatJamLokal(j.jamSelesai)}</span>
+                                    <span class="bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold border border-indigo-100 flex items-center gap-1"><i class='bx bx-buildings'></i> ${prodi}</span>
+                                </div>
+                                <h4 class="text-lg font-extrabold text-slate-900 leading-tight mb-3 pr-16">${matkul}</h4>
+                                <div class="space-y-2 mt-auto">
+                                    <div class="flex items-center text-slate-500 text-sm font-medium"><i class='bx bx-user-pin w-6 text-slate-400 text-lg'></i> <span class="truncate">${dosen}</span></div>
+                                    <div class="flex items-center text-slate-500 text-sm font-medium"><i class='bx bx-map w-6 text-brand-500 text-lg'></i> <span>Ruang ${ruang}</span></div>
+                                </div>
+                            </div>`;
+                        });
+                        html += `</div></div>`;
+                    }
+                });
+                html += `</div>`;
+            }
+            document.getElementById('mainContent').innerHTML = html;
+        };
+
+        window.renderLaporan = function() {
+            const filterRuang = document.getElementById('filter_laporan_ruang')?.value || 'all';
+            const filterHari = document.getElementById('filter_laporan_hari')?.value || 'all';
+            const filterDosen = document.getElementById('filter_laporan_dosen')?.value || 'all';
+            const filterProdi = document.getElementById('filter_laporan_prodi')?.value || 'all';
+
+            const optRuang = db.ruang.map(r => `<option value="${r.id}" ${String(filterRuang) === String(r.id) ? 'selected':''}>${r.nama}</option>`).join('');
+            const optHari = hariIndoList.map(h => `<option value="${h}" ${filterHari === h ? 'selected':''}>${h}</option>`).join('');
+            const optDosen = db.dosen.map(d => `<option value="${d.id}" ${String(filterDosen) === String(d.id) ? 'selected':''}>${d.nama}</option>`).join('');
+            const optProdi = db.prodi.map(p => `<option value="${p.id}" ${String(filterProdi) === String(p.id) ? 'selected':''}>${p.nama}</option>`).join('');
+
+            let html = `
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-6 gap-4 animate-slide-up no-print">
+                    <div><h2 class="text-3xl font-extrabold text-slate-900 tracking-tight">Laporan Ruangan</h2><p class="text-slate-500 mt-2 font-medium">Rekapitulasi penggunaan ruang kelas.</p></div>
+                    <button onclick="unduhPDF()" class="btn-press bg-slate-900 hover:bg-slate-800 text-white px-6 py-3 rounded-2xl text-sm font-bold shadow-float flex items-center gap-2"><i class='bx bx-download text-lg'></i> Download PDF</button>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-6 animate-slide-up no-print" style="animation-delay: 0.1s">
+                    <select id="filter_laporan_ruang" onchange="window.renderLaporan()" class="px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 shadow-sm focus:border-brand-500 focus:outline-none cursor-pointer"><option value="all">Semua Ruangan</option>${optRuang}</select>
+                    <select id="filter_laporan_hari" onchange="window.renderLaporan()" class="px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 shadow-sm focus:border-brand-500 focus:outline-none cursor-pointer"><option value="all">Semua Hari</option>${optHari}</select>
+                    <select id="filter_laporan_dosen" onchange="window.renderLaporan()" class="px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 shadow-sm focus:border-brand-500 focus:outline-none cursor-pointer"><option value="all">Semua Dosen</option>${optDosen}</select>
+                    <select id="filter_laporan_prodi" onchange="window.renderLaporan()" class="px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 shadow-sm focus:border-brand-500 focus:outline-none cursor-pointer"><option value="all">Semua Prodi</option>${optProdi}</select>
+                </div>
+                
+                <div id="areaLaporan" class="bg-white rounded-[2rem] shadow-sm border border-slate-100 p-6 sm:p-8 animate-slide-up" style="animation-delay: 0.2s">
+                    <div class="text-center mb-8 print-header">
+                        <h2 class="text-2xl font-bold text-slate-900 mb-1">LAPORAN PEMAKAIAN RUANGAN PERKULIAHAN</h2>
+                        <p class="text-slate-600 font-medium">STIKES Dharma Landbouw</p>
+                        <div class="border-b-2 border-slate-800 mt-4"></div>
+                    </div>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse print-table">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-slate-200">
+                                    <th class="py-4 px-4 text-xs font-bold text-slate-500 uppercase w-12">No</th>
+                                    <th class="py-4 px-4 text-xs font-bold text-slate-500 uppercase">Ruangan</th>
+                                    <th class="py-4 px-4 text-xs font-bold text-slate-500 uppercase">Hari</th>
+                                    <th class="py-4 px-4 text-xs font-bold text-slate-500 uppercase">Waktu</th>
+                                    <th class="py-4 px-4 text-xs font-bold text-slate-500 uppercase">Mata Kuliah</th>
+                                    <th class="py-4 px-4 text-xs font-bold text-slate-500 uppercase">Dosen</th>
+                                    <th class="py-4 px-4 text-xs font-bold text-slate-500 uppercase">Prodi</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+            `;
+            
+            let filteredJadwal = db.jadwal;
+            if(filterRuang !== 'all') filteredJadwal = filteredJadwal.filter(j => String(j.ruang_id) === String(filterRuang));
+            if(filterHari !== 'all') filteredJadwal = filteredJadwal.filter(j => j.hari === filterHari);
+            if(filterDosen !== 'all') filteredJadwal = filteredJadwal.filter(j => String(j.dosen_id) === String(filterDosen));
+            if(filterProdi !== 'all') filteredJadwal = filteredJadwal.filter(j => String(j.prodi_id) === String(filterProdi));
+
+            const hariOrder = {'Senin':1, 'Selasa':2, 'Rabu':3, 'Kamis':4, 'Jumat':5, 'Sabtu':6, 'Minggu':7};
+            let sortedJadwal = filteredJadwal.sort((a, b) => {
+                const rA = db.ruang.find(x => String(x.id) === String(a.ruang_id))?.nama || a.ruang_id || '';
+                const rB = db.ruang.find(x => String(x.id) === String(b.ruang_id))?.nama || b.ruang_id || '';
+                if(rA !== rB) return rA.localeCompare(rB);
+                if(hariOrder[a.hari] !== hariOrder[b.hari]) return (hariOrder[a.hari] || 9) - (hariOrder[b.hari] || 9);
+                return (window.formatJamLokal(a.jamMulai) || '').localeCompare(window.formatJamLokal(b.jamMulai) || '');
+            });
+
+            if(sortedJadwal.length === 0) {
+                html += `<tr><td colspan="7" class="py-12 text-center text-slate-400 font-medium">Belum ada data jadwal untuk kriteria ini.</td></tr>`;
+            } else {
+                sortedJadwal.forEach((j, idx) => {
+                    const matkul = db.matkul.find(x => String(x.id) === String(j.matkul_id))?.nama || j.matkul_id || '-';
+                    const dosen = db.dosen.find(x => String(x.id) === String(j.dosen_id))?.nama || j.dosen_id || '-';
+                    const ruang = db.ruang.find(x => String(x.id) === String(j.ruang_id))?.nama || j.ruang_id || '-';
+                    const prodi = db.prodi.find(x => String(x.id) === String(j.prodi_id))?.kode || j.prodi_id || 'Umum';
+                    
+                    html += `
+                        <tr class="hover:bg-slate-50/50">
+                            <td class="py-3 px-4 text-sm text-slate-600 text-center">${idx + 1}</td>
+                            <td class="py-3 px-4 text-sm font-bold text-slate-800">${ruang}</td>
+                            <td class="py-3 px-4 text-sm text-slate-700">${j.hari}</td>
+                            <td class="py-3 px-4 text-sm text-slate-700">${window.formatJamLokal(j.jamMulai)} - ${window.formatJamLokal(j.jamSelesai)}</td>
+                            <td class="py-3 px-4 text-sm font-medium text-slate-800">${matkul}</td>
+                            <td class="py-3 px-4 text-sm text-slate-700">${dosen}</td>
+                            <td class="py-3 px-4 text-sm text-slate-700">${prodi}</td>
+                        </tr>
+                    `;
+                });
+            }
+            html += `</tbody></table></div></div>`;
+            document.getElementById('mainContent').innerHTML = html;
+        };
+
+        window.unduhPDF = function() {
+            showToast('Menyusun file PDF. Harap tunggu...', 'success');
+            const element = document.getElementById('areaLaporan');
+            if (typeof html2pdf === 'undefined') { showToast('Sistem PDF belum siap. Menyiapkan...', 'error'); return; }
+            html2pdf().set({
+                margin: [10, 15, 10, 15], filename: 'Laporan_Pemakaian_Ruangan.pdf', image: { type: 'jpeg', quality: 1.0 },
+                html2canvas: { scale: 2, useCORS: true, logging: false }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+            }).from(element).save().then(() => showToast('Berhasil! File PDF telah diunduh.', 'success')).catch(err => showToast('Gagal merender PDF.', 'error'));
+        };
+
+        window.applyKesediaan = function(kesediaanId) {
+            if(!kesediaanId) return;
+            const k = db.kesediaan.find(x => String(x.id) === String(kesediaanId));
+            if(!k) return;
+
+            const setVal = (id, val) => { const el = document.getElementById(id); if(el) el.value = val; };
+            setVal('form_prodi_id', k.prodi_id || '');
+            setVal('form_matkul_id', k.matkul || '');
+            setVal('form_hari', k.hari || '');
+            setVal('form_jamMulai', window.formatJamLokal(k.jamMulai) || '');
+            setVal('form_jamSelesai', window.formatJamLokal(k.jamSelesai) || '');
+
+            const dosenEl = document.getElementById('form_dosen_id');
+            if (dosenEl && k.nama) {
+                const namaK = k.nama.toLowerCase();
+                const matchedDosen = db.dosen.find(d => d.nama.toLowerCase().includes(namaK) || namaK.includes(d.nama.toLowerCase()));
+                if (matchedDosen) dosenEl.value = matchedDosen.id;
+            }
+
+            if(typeof runConflictCheck === 'function') runConflictCheck();
+            showToast('Form terisi otomatis! Silakan atur Ruangan.', 'success');
+        };
+    </script>
+</body>
+</html>
